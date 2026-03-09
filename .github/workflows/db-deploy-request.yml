@@ -1,7 +1,9 @@
 name: Create Deploy Request
 env: 
-  PSCALE_ORG: # @TODO Your planetscale ORG
-  PSCALE_DB: # @TODO Pscale DB
+  PSCALE_ORG: ${{secrets.PSCALE_ORG}}
+  PSCALE_DB: ${{secrets.PSCALE_DB}}
+  PLANETSCALE_SERVICE_TOKEN_ID: ${{ secrets.PLANETSCALE_SERVICE_TOKEN_ID }}
+  PLANETSCALE_SERVICE_TOKEN: ${{ secrets.PLANETSCALE_SERVICE_TOKEN }}
 on:
   pull_request:
     paths: 
@@ -47,9 +49,6 @@ jobs:
 
       - name: Check branch exists
         shell: bash
-        env:
-          PLANETSCALE_SERVICE_TOKEN_ID: ${{ secrets.PLANETSCALE_SERVICE_TOKEN_ID }}
-          PLANETSCALE_SERVICE_TOKEN: ${{ secrets.PLANETSCALE_SERVICE_TOKEN }}
         run: |
           # Ensure the branch actually exists on pscale
           pscale branch --org $PSCALE_ORG list $PSCALE_DB -f json | jq -e '[.[].name | select(. != "main")] | any(. == "${{steps.get_branch_name.outputs.branch}}")'
@@ -57,9 +56,6 @@ jobs:
       - name: Create Deploy Request
         id: create_deploy_request
         shell: bash
-        env:
-          PLANETSCALE_SERVICE_TOKEN_ID: ${{ secrets.PLANETSCALE_SERVICE_TOKEN_ID }}
-          PLANETSCALE_SERVICE_TOKEN: ${{ secrets.PLANETSCALE_SERVICE_TOKEN }}
         run: |
           # Create the deploy request and grab its ID
           number=$(pscale deploy-request --org $PSCALE_ORG create $PSCALE_DB ${{steps.get_branch_name.outputs.branch}} -f json | jq -e '.number')

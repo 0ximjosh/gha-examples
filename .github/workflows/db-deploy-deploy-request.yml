@@ -1,7 +1,7 @@
 name: Deploy a deploy request
 env: 
-  PSCALE_ORG: # @TODO Your planetscale ORG
-  PSCALE_DB: # @TODO Pscale DB
+  PSCALE_ORG: ${{secrets.PSCALE_ORG}}
+  PSCALE_DB: ${{secrets.PSCALE_DB}}
 on:
   workflow_dispatch:
   pull_request:

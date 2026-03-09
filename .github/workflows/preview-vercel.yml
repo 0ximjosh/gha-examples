@@ -1,60 +1,40 @@
 name: Preview
 env:
-  PSCALE_ORG: # @TODO Your planetscale ORG
-  PSCALE_DB: # @TODO Pscale DB
+  PSCALE_ORG: ${{secrets.PSCALE_ORG}}
+  PSCALE_DB: ${{secrets.PSCALE_DB}}
   VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
   VERCEL_PROJECT_ID: ${{ secrets.PROJECT_ID }}
   VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+  PLANETSCALE_SERVICE_TOKEN_ID: ${{ secrets.PLANETSCALE_SERVICE_TOKEN_ID }}
+  PLANETSCALE_SERVICE_TOKEN: ${{ secrets.PLANETSCALE_SERVICE_TOKEN }}
 on:
   pull_request:
-    paths: 
-      # @TODO Dependant paths for the subproject, or none if single-project
-
     # Only run preview when a PR is opened, re-opened, or a review is requested.
     # You may or may not want a different flow. we found that triggering on every
     # push was too much
     types: [opened, reopened, review_requested]
 jobs:
   preview:
+    # Skip dependabot prs
     if: (github.actor != 'dependabot[bot]') && (contains(github.head_ref, 'dependabot/') == false)
     name: Deploy Preview
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v3.0.0
+      - uses: oven-sh/setup-bun@v2
         with:
-          version: 8.12.1
-          run_install: false
-
-      - name: Install Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 18
-          cache: pnpm
-
-      - name: Get pnpm store directory
-        shell: bash
-        run: |
-          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
-
-      - uses: actions/cache@v4
-        name: Setup pnpm cache
-        with:
-          path: ${{ env.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
+          bun-version: 1.3.10
 
       - name: Install Vercel CLI
-        run: pnpm install --global vercel@latest
+        run: bun install --global vercel@latest
 
       - name: Install dependencies
-        run: pnpm install
+        run: bun i
 
       - name: Pull Vercel Environment Information
         run: |
-          # @TODO DONT SET YOUR DB KEYS IN VERCEL FOR PREVIEWS IF USING THIS FLOW
+          # @NOTE DONT SET YOUR DB KEYS IN VERCEL FOR PREVIEWS IF USING THIS FLOW
           # We overwrite the db keys with ones we generate in this action.
           # This moves the vercel .env file for convenience 
           vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
@@ -66,9 +46,6 @@ jobs:
       - name: Setup DB keys
         id: db_keys
         shell: bash
-        env:
-          PLANETSCALE_SERVICE_TOKEN_ID: ${{ secrets.PLANETSCALE_SERVICE_TOKEN_ID }}
-          PLANETSCALE_SERVICE_TOKEN: ${{ secrets.PLANETSCALE_SERVICE_TOKEN }}
         run: |
           # If this PR has schema changes, set the pscale branch in your PR body
           # by including `db:[branch name]`. If there are NO schema changes, dont include any branch,
@@ -89,7 +66,7 @@ jobs:
             # We can be sure the schema is up to date thanks to `db-deploy-deploy-request.yml` creating
             # a fresh backup when a deploy request is merged
             branch="stage"
-            diff=$(pscale branch --org $PSCALE_ORG diff papertrail stage)
+            diff=$(pscale branch --org $PSCALE_ORG diff $PSCALE_DB stage)
             if [[ $diff -ne "" ]]
             then
               pscale branch --org $PSCALE_ORG delete $PSCALE_DB  stage
